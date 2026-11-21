@@ -1,5 +1,6 @@
 import './style.css';
 import { voiceSupported, listenOnce } from './voice.js';
+import { startPalmDetection } from './gesture.js';
 
 const API_BASE = 'http://localhost:8080';
 let player;
@@ -26,7 +27,7 @@ function createPlayer() {
         events: {
             onReady: () => {
                 playerReady = true;
-                setStatus('Ready: search something or tap 🎤');
+                setStatus('Ready: search, tap 🎤, or show your palm ✋');
             },
             onError: (e) => setStatus(`Can't play this video (code ${e.data}). Try another search.`),
         },
@@ -65,7 +66,17 @@ async function playQuery(query) {
     }
 }
 
-// Turns spoken text into an action
+function togglePlayPause() {
+    if (!playerReady) return;
+    if (player.getPlayerState() === YT.PlayerState.PLAYING) {
+        player.pauseVideo();
+        setStatus('Paused ✋');
+    } else {
+        player.playVideo();
+        setStatus('Resumed ✋');
+    }
+}
+
 function handleCommand(text) {
     const cmd = text.toLowerCase().trim().replace(/[.!?]$/, '');
 
@@ -100,12 +111,28 @@ function startVoice() {
     });
 }
 
+async function startGestures() {
+    const gestureStatus = document.getElementById('gesture-status');
+    gestureStatus.textContent = 'Starting camera…';
+    try {
+        await startPalmDetection({
+            video: document.getElementById('cam'),
+            onPalm: togglePlayPause,
+            onStatus: (s) => (gestureStatus.textContent = s),
+        });
+    } catch (err) {
+        console.error(err);
+        gestureStatus.textContent = 'Camera unavailable';
+    }
+}
+
 document.getElementById('start-btn').addEventListener('click', async () => {
     document.getElementById('start-screen').hidden = true;
     document.getElementById('app').hidden = false;
     setStatus('Loading player…');
     await loadYouTubeApi();
     createPlayer();
+    startGestures();
 });
 
 document.getElementById('search-form').addEventListener('submit', (e) => {

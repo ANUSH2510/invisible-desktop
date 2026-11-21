@@ -77,3 +77,13 @@ html, body {
 @keyframes pulse {
   50% { transform: scale(1.12); }
 }
+#cam {
+  width: 96px;
+  height: 72px;
+  border-radius: 6px;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror, so it feels like a mirror */
+  background: #000;
+}
+
+#gesture-status { font-size: 0.9rem; min-width: 7rem; }
