@@ -1,0 +1,61 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+[hidden] { display: none !important; }
+
+html, body {
+  height: 100%;
+  background: #0b0b0f;
+  color: #e8e8ec;
+  font-family: system-ui, sans-serif;
+}
+
+#start-screen {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#start-btn {
+  font-size: 1.5rem;
+  padding: 1rem 2.5rem;
+  border: none;
+  border-radius: 999px;
+  background: #e8e8ec;
+  color: #0b0b0f;
+  cursor: pointer;
+}
+
+#app { height: 100%; display: flex; flex-direction: column; }
+#player { flex: 1; width: 100%; }
+
+#controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #15151c;
+}
+
+#search-form { display: flex; gap: 0.5rem; flex: 1; min-width: 240px; }
+
+#search-input {
+  flex: 1;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid #333;
+  border-radius: 8px;
+  background: #0b0b0f;
+  color: inherit;
+  font-size: 1rem;
+}
+
+#search-form button {
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  background: #e8e8ec;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#status { font-size: 0.9rem; opacity: 0.75; }

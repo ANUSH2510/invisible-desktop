@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invisible Desktop</title>
+</head>
+<body>
+<div id="start-screen">
+  <button id="start-btn">Tap to start</button>
+</div>
+
+<div id="app" hidden>
+  <div id="player"></div>
+  <div id="controls">
+    <form id="search-form">
+      <input id="search-input" placeholder="Type a search, e.g. lofi" autocomplete="off" />
+      <button type="submit">Play</button>
+    </form>
+    <p id="status">Ready</p>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
