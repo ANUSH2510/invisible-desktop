@@ -1,4 +1,5 @@
 import './style.css';
+import { voiceSupported, listenOnce } from './voice.js';
 
 const API_BASE = 'http://localhost:8080';
 let player;
@@ -8,7 +9,6 @@ function setStatus(text) {
     document.getElementById('status').textContent = text;
 }
 
-// Load YouTube's player script and wait until it's ready
 function loadYouTubeApi() {
     return new Promise((resolve) => {
         window.onYouTubeIframeAPIReady = resolve;
@@ -26,14 +26,13 @@ function createPlayer() {
         events: {
             onReady: () => {
                 playerReady = true;
-                setStatus('Ready: search something');
+                setStatus('Ready: search something or tap 🎤');
             },
             onError: (e) => setStatus(`Can't play this video (code ${e.data}). Try another search.`),
         },
     });
 }
 
-// The one function voice and gestures will reuse later
 async function playQuery(query) {
     if (!query.trim()) return;
     if (!playerReady) {
@@ -66,6 +65,41 @@ async function playQuery(query) {
     }
 }
 
+// Turns spoken text into an action
+function handleCommand(text) {
+    const cmd = text.toLowerCase().trim().replace(/[.!?]$/, '');
+
+    if (cmd.startsWith('play ')) {
+        playQuery(cmd.slice(5));
+    } else if (cmd === 'pause' || cmd === 'stop') {
+        player.pauseVideo();
+        setStatus('Paused');
+    } else if (cmd === 'resume' || cmd === 'play') {
+        player.playVideo();
+        setStatus('Resumed');
+    } else {
+        setStatus(`Heard "${text}". Try: play <something>`);
+    }
+}
+
+const VOICE_ERRORS = {
+    'no-speech': "Didn't hear anything. Try again.",
+    'not-allowed': 'Microphone is blocked. Allow it in the browser.',
+    'network': "Speech service can't be reached. Check internet.",
+};
+
+function startVoice() {
+    const micBtn = document.getElementById('mic-btn');
+    micBtn.classList.add('listening');
+    setStatus('Listening…');
+
+    listenOnce({
+        onResult: (text) => handleCommand(text),
+        onError: (err) => setStatus(VOICE_ERRORS[err] ?? `Voice error: ${err}`),
+        onEnd: () => micBtn.classList.remove('listening'),
+    });
+}
+
 document.getElementById('start-btn').addEventListener('click', async () => {
     document.getElementById('start-screen').hidden = true;
     document.getElementById('app').hidden = false;
@@ -78,3 +112,11 @@ document.getElementById('search-form').addEventListener('submit', (e) => {
     e.preventDefault();
     playQuery(document.getElementById('search-input').value);
 });
+
+const micBtn = document.getElementById('mic-btn');
+if (voiceSupported) {
+    micBtn.addEventListener('click', startVoice);
+} else {
+    micBtn.disabled = true;
+    micBtn.title = 'Voice not supported in this browser';
+}
