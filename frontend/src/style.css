@@ -59,7 +59,7 @@ html, body {
 }
 
 #status { font-size: 0.9rem; opacity: 0.75; }
-#mic-btn {
+#mic-btn , #cam-button {
   font-size: 1.3rem;
   width: 2.8rem;
   height: 2.8rem;
@@ -87,3 +87,4 @@ html, body {
 }
 
 #gesture-status { font-size: 0.9rem; min-width: 7rem; }
+#cam-btn.off { opacity: 0.4; }

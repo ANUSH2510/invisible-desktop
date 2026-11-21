@@ -1,6 +1,6 @@
 import './style.css';
 import { voiceSupported, listenOnce } from './voice.js';
-import { startPalmDetection } from './gesture.js';
+import { createPalmDetector } from './gesture.js';
 
 const API_BASE = 'http://localhost:8080';
 let player;
@@ -77,10 +77,44 @@ function togglePlayPause() {
     }
 }
 
+// ---------- Camera ----------
+const camBtn = document.getElementById('cam-btn');
+const gestureStatus = document.getElementById('gesture-status');
+
+const palm = createPalmDetector({
+    video: document.getElementById('cam'),
+    onPalm: togglePlayPause,
+    onStatus: (s) => (gestureStatus.textContent = s),
+});
+
+async function cameraOn() {
+    try {
+        await palm.start();
+        camBtn.classList.remove('off');
+    } catch (err) {
+        console.error(err);
+        gestureStatus.textContent = 'Camera unavailable';
+    }
+}
+
+function cameraOff() {
+    palm.stop();
+    camBtn.classList.add('off');
+}
+
+camBtn.addEventListener('click', () => (palm.isRunning() ? cameraOff() : cameraOn()));
+
+// ---------- Voice ----------
 function handleCommand(text) {
     const cmd = text.toLowerCase().trim().replace(/[.!?]$/, '');
 
-    if (cmd.startsWith('play ')) {
+    if (cmd === 'camera off') {
+        cameraOff();
+        setStatus('Camera turned off');
+    } else if (cmd === 'camera on') {
+        cameraOn();
+        setStatus('Camera turned on');
+    } else if (cmd.startsWith('play ')) {
         playQuery(cmd.slice(5));
     } else if (cmd === 'pause' || cmd === 'stop') {
         player.pauseVideo();
@@ -111,28 +145,14 @@ function startVoice() {
     });
 }
 
-async function startGestures() {
-    const gestureStatus = document.getElementById('gesture-status');
-    gestureStatus.textContent = 'Starting camera…';
-    try {
-        await startPalmDetection({
-            video: document.getElementById('cam'),
-            onPalm: togglePlayPause,
-            onStatus: (s) => (gestureStatus.textContent = s),
-        });
-    } catch (err) {
-        console.error(err);
-        gestureStatus.textContent = 'Camera unavailable';
-    }
-}
-
+// ---------- Start ----------
 document.getElementById('start-btn').addEventListener('click', async () => {
     document.getElementById('start-screen').hidden = true;
     document.getElementById('app').hidden = false;
     setStatus('Loading player…');
     await loadYouTubeApi();
     createPlayer();
-    startGestures();
+    cameraOn();
 });
 
 document.getElementById('search-form').addEventListener('submit', (e) => {

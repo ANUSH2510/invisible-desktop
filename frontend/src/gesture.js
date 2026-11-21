@@ -4,27 +4,30 @@ const WASM_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.3/was
 const MODEL_URL =
     'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
 
-const HOLD_MS = 1000;      // palm must be held this long
-const COOLDOWN_MS = 1500;  // minimum gap between triggers
+const HOLD_MS = 1000;
+const COOLDOWN_MS = 1500;
 
-export async function startPalmDetection({ video, onPalm, onStatus }) {
-    const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: false,
-    });
-    video.srcObject = stream;
-    await video.play();
+let landmarker = null;
 
-    const vision = await FilesetResolver.forVisionTasks(WASM_URL);
-    const landmarker = await HandLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-        runningMode: 'VIDEO',
-        numHands: 1,
-    });
+// Load the model once, reuse it every time the camera turns on
+async function getLandmarker() {
+    if (!landmarker) {
+        const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+        landmarker = await HandLandmarker.createFromOptions(vision, {
+            baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+            runningMode: 'VIDEO',
+            numHands: 1,
+        });
+    }
+    return landmarker;
+}
 
-    let palmSince = null;   // when the current palm hold started
+export function createPalmDetector({ video, onPalm, onStatus }) {
+    let stream = null;
+    let rafId = null;
+    let palmSince = null;
     let lastTrigger = 0;
-    let armed = true;       // must drop the palm before triggering again
+    let armed = true;
     let frame = 0;
     let lastState = '';
 
@@ -35,41 +38,66 @@ export async function startPalmDetection({ video, onPalm, onStatus }) {
         }
     }
 
-    function loop() {
-        frame++;
-        // Process every 2nd frame to save battery
-        if (frame % 2 === 0 && video.readyState >= 2) {
-            const now = performance.now();
-            const result = landmarker.detectForVideo(video, now);
-            const hand = result.landmarks?.[0];
+    async function start() {
+        if (stream) return; // already running
+        onStatus('Starting camera…');
 
-            if (hand && isOpenPalm(hand)) {
-                if (palmSince === null) palmSince = now;
+        const lm = await getLandmarker();
+        stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480 },
+            audio: false,
+        });
+        video.srcObject = stream;
+        await video.play();
 
-                const heldLongEnough = now - palmSince >= HOLD_MS;
-                const cooledDown = now - lastTrigger >= COOLDOWN_MS;
+        palmSince = null;
+        armed = true;
+        lastState = '';
 
-                if (armed && heldLongEnough && cooledDown) {
-                    lastTrigger = now;
-                    armed = false;
-                    onPalm();
-                    report('✋ Triggered');
-                } else if (armed) {
-                    report('✋ Hold…');
+        const loop = () => {
+            if (!stream) return; // stopped
+            frame++;
+            if (frame % 2 === 0 && video.readyState >= 2) {
+                const now = performance.now();
+                const hand = lm.detectForVideo(video, now).landmarks?.[0];
+
+                if (hand && isOpenPalm(hand)) {
+                    if (palmSince === null) palmSince = now;
+                    const heldLongEnough = now - palmSince >= HOLD_MS;
+                    const cooledDown = now - lastTrigger >= COOLDOWN_MS;
+
+                    if (armed && heldLongEnough && cooledDown) {
+                        lastTrigger = now;
+                        armed = false;
+                        onPalm();
+                        report('✋ Triggered');
+                    } else if (armed) {
+                        report('✋ Hold…');
+                    }
+                } else {
+                    palmSince = null;
+                    armed = true;
+                    report(hand ? '🖐 Hand seen' : 'No hand');
                 }
-            } else {
-                palmSince = null;
-                armed = true;
-                report(hand ? '🖐 Hand seen' : 'No hand');
             }
-        }
-        requestAnimationFrame(loop);
+            rafId = requestAnimationFrame(loop);
+        };
+        rafId = requestAnimationFrame(loop);
     }
 
-    requestAnimationFrame(loop);
+    function stop() {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = null;
+        if (stream) stream.getTracks().forEach((t) => t.stop()); // turns the camera hardware off
+        stream = null;
+        video.srcObject = null;
+        lastState = '';
+        onStatus('Camera off');
+    }
+
+    return { start, stop, isRunning: () => stream !== null };
 }
 
-// Fingertip above its middle joint = finger extended
 function isOpenPalm(lm) {
     return [[8, 6], [12, 10], [16, 14], [20, 18]].every(
         ([tip, pip]) => lm[tip].y < lm[pip].y
